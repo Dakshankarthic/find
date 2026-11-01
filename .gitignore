@@ -1,0 +1,12 @@
+.env*
+!.env.example
+vercel-secrets.env
+.vercel/
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+secrets.json
+registration.json
+example_data.json
+*.log
