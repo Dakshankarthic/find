@@ -19,6 +19,14 @@ def test_anonymous_cannot_read_location(client):
     assert client.get('/').status_code==200
     assert 'no-store' in client.get('/').headers['cache-control']
 
+def test_public_asset_urls(client):
+    page=client.get('/').text
+    for url,mime in [('/style.css','text/css'),('/app.js','application/javascript'),('/icon.svg','image/svg+xml')]:
+        assert url in page
+        response=client.get(url)
+        assert response.status_code==200
+        assert mime in response.headers['content-type']
+
 def test_cookie_tampering_and_logout(client):
     assert client.post('/api/login',json={'password':'wrong'}).status_code==401
     assert client.post('/api/login',json={'password':'test-password'}).status_code==200

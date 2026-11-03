@@ -16,7 +16,9 @@ from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parent
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-app.mount('/assets', StaticFiles(directory=ROOT / 'public'), name='assets')
+# Vercel serves public/ through its CDN and may omit it from the function bundle.
+# Defer directory validation so that API startup does not depend on static files.
+app.mount('/assets', StaticFiles(directory=ROOT / 'public', check_dir=False), name='assets')
 lock = threading.Lock()
 last_result = None
 last_checked = 0.0
@@ -73,6 +75,21 @@ async def headers(request, call_next):
 @app.get('/')
 def home():
     return FileResponse(ROOT / 'public' / 'index.html')
+
+
+@app.get('/style.css')
+def stylesheet():
+    return FileResponse(ROOT / 'public' / 'style.css', media_type='text/css')
+
+
+@app.get('/app.js')
+def javascript():
+    return FileResponse(ROOT / 'public' / 'app.js', media_type='application/javascript')
+
+
+@app.get('/icon.svg')
+def icon():
+    return FileResponse(ROOT / 'public' / 'icon.svg', media_type='image/svg+xml')
 
 
 @app.get('/api/session')
