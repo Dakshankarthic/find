@@ -31,6 +31,13 @@ def test_cookie_tampering_and_logout(client):
 def test_foreign_origin_rejected(client):
     assert client.post('/api/login',json={'password':'test-password'},headers={'Origin':'https://other.example'}).status_code==403
 
+def test_copied_environment_quotes_do_not_break_login(client,monkeypatch):
+    monkeypatch.setenv('TRACKER_PASSWORD', ' "test-password"\n')
+    monkeypatch.setenv('SESSION_SECRET', " 'test-secret' ")
+    response=client.post('/api/login',json={'password':'test-password'})
+    assert response.status_code==200
+    assert client.get('/api/session').json()['authenticated'] is True
+
 def test_refresh_and_cooldown(client):
     client.post('/api/login',json={'password':'test-password'})
     value={'name':'Test tracker','location':{'latitude':1,'longitude':2,'timestamp':1700000000,'accuracy':10}}

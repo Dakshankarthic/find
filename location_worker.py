@@ -18,12 +18,20 @@ def finish(payload, code=0):
     os._exit(code)  # FCM owns background threads; terminate this request's child only.
 
 
+def clean_env(key: str, default: str = '') -> str:
+    val = os.environ.get(key, default)
+    if isinstance(val, str):
+        return val.strip('"\' \t\r\n')
+    return val
+
+
 def main():
     timer = threading.Timer(48, lambda: finish({'error': 'Google did not return a report in time. Please try again.'}, 2))
     timer.daemon = True
     timer.start()
     try:
-        cached = json.loads(base64.b64decode(os.environ['FINDMY_SECRETS_B64'], validate=True))
+        raw_b64 = clean_env('FINDMY_SECRETS_B64')
+        cached = json.loads(base64.b64decode(raw_b64, validate=True))
         for field in ('username', 'aas_token', 'owner_key', 'fcm_credentials'):
             if not cached.get(field):
                 raise ValueError('Incomplete desktop session')
@@ -40,7 +48,7 @@ def main():
                 import NovaApi.ExecuteAction.LocateTracker.decrypt_locations as decrypt_module
                 from NovaApi.ExecuteAction.LocateTracker.location_request import get_location_data_for_device
                 from ProtoDecoders import DeviceUpdate_pb2, Common_pb2
-                device_id = os.environ['TRACKER_DEVICE_ID']
+                device_id = clean_env('TRACKER_DEVICE_ID')
                 devices = parse_device_list_protobuf(request_device_list())
                 selected = [d for d in devices.deviceMetadata
                             if any(c.id == device_id for c in d.identifierInformation.canonicIds.canonicId)]
@@ -57,7 +65,7 @@ def main():
                     collected.append(loc)
                     return loc
                 decrypt_module.WrappedLocation = collect
-                get_location_data_for_device(device_id, os.environ.get('TRACKER_NAME', 'My tracker'))
+                get_location_data_for_device(device_id, clean_env('TRACKER_NAME', 'My tracker'))
                 reports = []
                 for loc in collected:
                     if loc.status == Common_pb2.Status.SEMANTIC:
@@ -68,7 +76,7 @@ def main():
                     if -90 <= lat <= 90 and -180 <= lon <= 180:
                         reports.append({'latitude': lat, 'longitude': lon, 'timestamp': loc.time,
                                         'accuracy': loc.accuracy, 'ownReport': loc.is_own_report})
-            result = {'name': os.environ.get('TRACKER_NAME', 'My tracker'),
+            result = {'name': clean_env('TRACKER_NAME', 'My tracker'),
                       'location': max(reports, key=lambda p: p['timestamp']) if reports else None}
         finish(result)
     except Exception:

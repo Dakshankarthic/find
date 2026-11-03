@@ -22,12 +22,19 @@ last_result = None
 last_checked = 0.0
 
 
+def clean_env(key: str, default: str = '') -> str:
+    val = os.environ.get(key, default)
+    if isinstance(val, str):
+        return val.strip('"\' \t\r\n')
+    return val
+
+
 def configured():
-    return all(os.environ.get(k) for k in ('TRACKER_PASSWORD', 'SESSION_SECRET', 'FINDMY_SECRETS_B64', 'TRACKER_DEVICE_ID'))
+    return all(clean_env(k) for k in ('TRACKER_PASSWORD', 'SESSION_SECRET', 'FINDMY_SECRETS_B64', 'TRACKER_DEVICE_ID'))
 
 
 def signature(value):
-    return hmac.new(os.environ.get('SESSION_SECRET', '').encode(), value.encode(), hashlib.sha256).hexdigest()
+    return hmac.new(clean_env('SESSION_SECRET').encode(), value.encode(), hashlib.sha256).hexdigest()
 
 
 def valid_cookie(value):
@@ -71,7 +78,7 @@ def home():
 @app.get('/api/session')
 def session(request: Request):
     return {'configured': configured(), 'authenticated': valid_cookie(request.cookies.get('tracker_session')),
-            'name': os.environ.get('TRACKER_NAME', 'My tracker')}
+            'name': clean_env('TRACKER_NAME', 'My tracker')}
 
 
 @app.post('/api/login')
@@ -83,7 +90,10 @@ async def login(request: Request):
         raise HTTPException(413, 'Request too large.')
     body = await request.json()
     supplied = body.get('password', '')
-    if not isinstance(supplied, str) or not hmac.compare_digest(supplied.encode(), os.environ['TRACKER_PASSWORD'].encode()):
+    if isinstance(supplied, str):
+        supplied = supplied.strip('"\' \t\r\n')
+    expected = clean_env('TRACKER_PASSWORD')
+    if not isinstance(supplied, str) or not expected or not hmac.compare_digest(supplied.encode(), expected.encode()):
         raise HTTPException(401, 'Incorrect website password.')
     value = f'{int(time.time())}.{secrets.token_hex(16)}'
     result = JSONResponse({'ok': True})
